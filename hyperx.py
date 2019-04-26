@@ -42,6 +42,7 @@ class HyperX:
 		self.adjacency_list = {}
 		self.id_to_coordinates = {}
 		self.coordinates_to_id = {}
+		self.link_capacity = 100 # in Gbps
 		#print self.S
 		# first generate all the switches
 		self.create_switches()
@@ -168,11 +169,43 @@ class HyperX:
 	def route_wcmp(traffic_matrix, network):
 		adj_matrix = self.adjacency_matrix()
 		num_switches = len(adj_matrix)
+		traffic_load = [0] * num_switches # traffic load on each link between links
 		for i in range(num_switches):
-			for j in range(num_switches):
-				if i == j:
+			traffic_load[i] = [0] * num_switches
+		for src in range(num_switches):
+			for dst in range(num_switches):
+				if src == dst:
 					continue
-				path_set = self.shortest_path_set(adj_matrix, i, j)
+				path_total_weight = 0
+				path_set = self.shortest_path_set(adj_matrix, src, dst)
+				path_weight = []
+				for path in path_set:	
+					path_min_capacity = self.link_capacity
+					curr_node = path[0]
+					for i in range(1, len(path), 1):
+						intermediate_swid = path[i]
+						path_min_capacity = min(float(path_min_capacity), adj_matrix[curr_node][intermediate_swid] * self.link_capacity)
+						curr_node = intermediate_swid
+					path_weight.append(path_min_capacity)
+					path_total_weight += path_min_capacity
+				path_index = 0
+				for path in path_set:
+					curr_node = path[0]
+					for i in range(1, len(path), 1):
+						intermediate_swid = path[i]
+						traffic_load[curr_node][intermediate_swid] += (traffic_matrix[src][dst] * (path_weight[path_index]/path_total_weight))
+						curr_node = intermediate_swid
+					path_index += 1
+		# finally, compute the mlu
+		mlu = 0
+		for src in range(num_switches):
+			for dst in range(num_switches):
+				if src == dst:
+					continue
+				if adj_matrix[src][dst] <= 0:
+					continue
+				mlu = max(mlu, traffic_load[src][dst] / adj_matrix[src][dst] / self.link_capacity)
+		return mlu
 	# wire up network to optical switches within one dimension
 	#def wire_network_intradimension():
 	#	num_optical_switches = 0
