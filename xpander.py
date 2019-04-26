@@ -57,7 +57,7 @@ class Xpander:
 			# perform the lift
 			# starting_metanode = random.randint(0, self.nmetanodes - 1)
 			scrambled = [0] * self.nmetanodes
-			for metanode in range(self.nmetanode):
+			for metanode in range(self.nmetanodes):
 				vect = range(self.ntors_per_metanode)
 				random.shuffle(vect)
 				scrambled[metanode] = vect
@@ -69,54 +69,38 @@ class Xpander:
 				sw1_index = src * self.ntors_per_metanode + offset_src
 				sw2_index = dst * self.ntors_per_metanode + offset_dst
 				self.adjacency_list[sw1_index].append(sw2_index)
-			starting_metanode = 0
-			curr_metanode = starting_metanode
-			neighbor_metanode = (curr_metanode + 1) % self.nmetanodes
-			stop = False
-			while not stop:
-				if neighbor_metanode == starting_metanode:
-					stop = True
-				# lift the graph
-				sw1_index = curr_metanode * self.ntors_per_metanode + metanode_offset[curr_metanode]
-				sw2_index = neighbor_metanode * self.ntors_per_metanode + metanode_offset[neighbor_metanode]
-				# forms a bidir link
-				self.adjacency_list[sw1_index].append(sw2_index)
 				self.adjacency_list[sw2_index].append(sw1_index)
-				metanode_offset[curr_metanode] = (metanode_offset[curr_metanode] + 1) % self.ntors_per_metanode
-				# metanode_offset[neighbor_metanode] = (metanode_offset[neighbor_metanode] + 1) % self.ntors_per_metanode
-				curr_metanode = neighbor_metanode
-				neighbor_metanode = (curr_metanode + 1) % self.nmetanodes
 			r += 1 
 	# only works for ntors_per_metanode = nmetanode - 1
-	def connect_switches(self):	
-		metanode_offset = [0] * self.nmetanodes
-		r = 0
-		while r < self.tor_radix:
+	#def connect_switches(self):	
+	#	metanode_offset = [0] * self.nmetanodes
+	#	r = 0
+	#	while r < self.tor_radix:
 			# perform the lift
 			# starting_metanode = random.randint(0, self.nmetanodes - 1)
-			starting_metanode = 0
-			curr_metanode = starting_metanode
-			neighbor_metanode = (curr_metanode + 1) % self.nmetanodes
-			stop = False
+	#		starting_metanode = 0
+	#		curr_metanode = starting_metanode
+	#		neighbor_metanode = (curr_metanode + 1) % self.nmetanodes
+	#		stop = False
 
-			matchings = [0] * self.nmetanodes
+	#		matchings = [0] * self.nmetanodes
 
-			for i in range(self.nmetanodes):
+	#		for i in range(self.nmetanodes):
 
-			while not stop:
-				if neighbor_metanode == starting_metanode:
-					stop = True
+	#		while not stop:
+	#			if neighbor_metanode == starting_metanode:
+	#				stop = True
 				# lift the graph
-				sw1_index = curr_metanode * self.ntors_per_metanode + metanode_offset[curr_metanode]
-				sw2_index = neighbor_metanode * self.ntors_per_metanode + metanode_offset[neighbor_metanode]
+	#			sw1_index = curr_metanode * self.ntors_per_metanode + metanode_offset[curr_metanode]
+	#			sw2_index = neighbor_metanode * self.ntors_per_metanode + metanode_offset[neighbor_metanode]
 				# forms a bidir link
-				self.adjacency_list[sw1_index].append(sw2_index)
-				self.adjacency_list[sw2_index].append(sw1_index)
-				metanode_offset[curr_metanode] = (metanode_offset[curr_metanode] + 1) % self.ntors_per_metanode
+	#			self.adjacency_list[sw1_index].append(sw2_index)
+	#			self.adjacency_list[sw2_index].append(sw1_index)
+	#			metanode_offset[curr_metanode] = (metanode_offset[curr_metanode] + 1) % self.ntors_per_metanode
 				# metanode_offset[neighbor_metanode] = (metanode_offset[neighbor_metanode] + 1) % self.ntors_per_metanode
-				curr_metanode = neighbor_metanode
-				neighbor_metanode = (curr_metanode + 1) % self.nmetanodes
-			r += 1 
+	#			curr_metanode = neighbor_metanode
+	#			neighbor_metanode = (curr_metanode + 1) % self.nmetanodes
+	#		r += 1 
 
 	def cheeger_constant(self):
 		trials = 1000
@@ -131,6 +115,18 @@ class Xpander:
 			cc[i] = (float(boundary_links) / len(A))
 		return min(cc)
 
-xpander = Xpander(2,3,32)
-print xpander.adjacency_list
-print "expansion factor: {}".format(xpander.cheeger_constant())
+	def adjacency_matrix(self):
+		num_switches = len(self.adjacency_list.keys())
+		mat = [0] * num_switches
+		for i in range(num_switches):
+			mat[i] = [0] * num_switches
+		for sw in self.adjacency_list.keys():
+			for neighbor in self.adjacency_list[sw]:
+				mat[sw][neighbor] += 1
+		return mat
+#xpander = Xpander(82,32)
+#print xpander.adjacency_list
+#print "expansion factor: {}".format(xpander.cheeger_constant())
+#for ind in xpander.adjacency_list:
+#	sw = xpander.adjacency_list[ind]
+#	print "sw {} : len {}".format(ind, len(sw))

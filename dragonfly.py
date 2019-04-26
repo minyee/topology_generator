@@ -29,7 +29,7 @@ class CanonicalDragonfly:
 
 	# forms a directed link from src switch to dest switch
 	# no error checks
-	def coonect_src_dst_switches(self, src, dst):
+	def connect_src_dst_switches(self, src, dst):
 		self.adjacency_list[src].append(dst)
 
 	def connect_all_switches(self):
@@ -41,11 +41,16 @@ class CanonicalDragonfly:
 				if (group_id * self.a) + offset == src:
 					continue
 				# otherwise, form a directed link\
-				self.coonect_src_dst_switches(src, (group_id * self.a) + offset)
-			# next, connect to one other switch
-			curr_offset = src % self.a
-			target_group = (group_id + (curr_offset + 1)) % self.g
-			self.coonect_src_dst_switches(src, target_group * self.a + curr_offset)
+				self.connect_src_dst_switches(src, (group_id * self.a) + offset)
+		group_offset = [0] * self.g
+		for src_group in range(self.g - 1):
+			for target_group in range(src_group + 1, self.g, 1):
+				sw1 = src_group * self.a + group_offset[src_group]
+				sw2 = target_group * self.a + group_offset[target_group]
+				self.connect_src_dst_switches(sw1, sw2)
+				self.connect_src_dst_switches(sw2, sw1)
+				group_offset[src_group] += 1
+				group_offset[target_group] += 1
 		return
 
 	# computes the expandability of the network graph
@@ -61,5 +66,15 @@ class CanonicalDragonfly:
 						boundary_links += 1
 			cc[i] = (float(boundary_links) / len(A))
 		return min(cc)
+
+	def adjacency_matrix(self):
+		num_switches = len(self.adjacency_list.keys())
+		mat = [0] * num_switches
+		for i in range(num_switches):
+			mat[i] = [0] * num_switches
+		for sw in self.adjacency_list.keys():
+			for neighbor in self.adjacency_list[sw]:
+				mat[sw][neighbor] += 1
+		return mat
 
 #dfly = CanonicalDragonfly(5, 2)
