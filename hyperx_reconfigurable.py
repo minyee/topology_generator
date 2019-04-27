@@ -71,8 +71,8 @@ class HyperX:
 		print "total number of switches = " + str(len(all_coords))
 		return
 
+	# in this case, we first don't connect the final dimension
 	def wire_network(self):
-		# Next step is to wire all of them together
 		num_neighbors = 0
 		for i in self.S:
 			num_neighbors += (i - 1)
@@ -87,15 +87,13 @@ class HyperX:
 
 	# checks to see if there is at least one dimension, returns True is so, and False otherwise
 	def share_dimension(self, coord1, coord2):
-		see_diff = False
-		for i in range(len(coord1)):
-			if coord1[i] == coord2[i]:
-				continue
-			elif coord1[i] != coord2[i] and see_diff:
-				return False
-			else:
-				see_diff = True
-		return see_diff
+		diff_sum = 0
+		# connect everything but the final dimension
+		for i in range(len(coord1) - 1):
+			if coord1[i] != coord2[i]:
+				diff_sum += 1
+		return (diff_sum == 1)
+
 
 
 	def cheeger_constant(self):
