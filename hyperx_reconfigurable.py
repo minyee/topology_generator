@@ -30,7 +30,7 @@ def splitset(universe1):
 	B = universe
 	return A, B
 
-class HyperX:
+class TapapredHyperX:
 	def __init__(self, L_arg, S_arg, K_arg, T_arg):
 		self.L = L_arg
 		self.S = S_arg ## Note that 
@@ -46,7 +46,7 @@ class HyperX:
 		#print self.S
 		# first generate all the switches
 		self.create_switches()
-		self.wire_network()
+		self.wire_static_network()
 		return
 
 	def create_switches(self):
@@ -72,7 +72,7 @@ class HyperX:
 		return
 
 	# in this case, we first don't connect the final dimension
-	def wire_network(self):
+	def wire_static_network(self):
 		num_neighbors = 0
 		for i in self.S:
 			num_neighbors += (i - 1)
@@ -84,6 +84,9 @@ class HyperX:
 					self.adjacency_list[src].append(dst)
 			assert(len(self.adjacency_list[src]) == num_neighbors)
 		return
+
+	def wire_optical_network(self, ocs_radix):
+
 
 	# checks to see if there is at least one dimension, returns True is so, and False otherwise
 	def share_dimension(self, coord1, coord2):
