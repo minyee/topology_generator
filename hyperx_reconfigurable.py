@@ -209,13 +209,5 @@ class HyperX:
 
 
 
-hx = HyperX(3, [3], 1, 1)
-#hx = HyperX(4, [4], 1, 1)
-adj_matrix = hx.adjacency_matrix()
-path_set = hx.shortest_path_set(adj_matrix, 0, 26)
-print path_set
-
-
-
 
 	

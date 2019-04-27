@@ -31,6 +31,7 @@ class CanonicalDragonfly:
 	# no error checks
 	def connect_src_dst_switches(self, src, dst):
 		self.adjacency_list[src].append(dst)
+		return
 
 	def connect_all_switches(self):
 		for src in self.adjacency_list.keys():
@@ -76,5 +77,3 @@ class CanonicalDragonfly:
 			for neighbor in self.adjacency_list[sw]:
 				mat[sw][neighbor] += 1
 		return mat
-
-#dfly = CanonicalDragonfly(5, 2)
