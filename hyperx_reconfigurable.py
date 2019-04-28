@@ -30,7 +30,7 @@ def splitset(universe1):
 	B = universe
 	return A, B
 
-class TapapredHyperX:
+class TaperedHyperX:
 	def __init__(self, L_arg, S_arg, K_arg, T_arg):
 		self.L = L_arg
 		self.S = S_arg ## Note that 
@@ -47,6 +47,7 @@ class TapapredHyperX:
 		# first generate all the switches
 		self.create_switches()
 		self.wire_static_network()
+		self.wire_tapered_dimension()
 		return
 
 	def create_switches(self):
@@ -74,7 +75,7 @@ class TapapredHyperX:
 	# in this case, we first don't connect the final dimension
 	def wire_static_network(self):
 		num_neighbors = 0
-		for i in self.S:
+		for i in self.S[:-1]:
 			num_neighbors += (i - 1)
 		for src in self.adjacency_list.keys():
 			for dst in self.adjacency_list.keys():
@@ -82,19 +83,81 @@ class TapapredHyperX:
 					continue
 				else:
 					self.adjacency_list[src].append(dst)
+			print len(self.adjacency_list[src])
+			print num_neighbors
 			assert(len(self.adjacency_list[src]) == num_neighbors)
 		return
 
-	def wire_optical_network(self, ocs_radix):
+	# increments the coordinates of the switch, dimension_size is the number of indices max in each dimension
+	def increment_switch_coord(coord, dimension_size):
+		assert(len(dimension_size) == len(coord))
+		coord[-1] = dimension_size[-1]
+		if coord[-1] != 0:
+			return coord
+		carry_forward = True
+		for i in range(len(dimension_size) - 2, 0, -1):
+			if not carry_forward:
+				break
+			else:
+				coord[i] = (coord[i] + 1) % self.S[i]
+				if coord[i] != 0:
+					carry_forward = False
+		return
+
+	def find_minimally_connected_group(intergroup_connectivity, curr_group):
+		minimum = sys.maxsize
+		min_group = -1
+		for group in range(len(intergroup_connectivity)):
+			if curr_group == group:
+				continue
+			else:
+				if minimum > intergroup_connectivity[group]:
+					minimum = intergroup_connectivity[group]
+					min_group = group
+		return min_group
+
+	def wire_tapered_dimension(self, taper):
+		links_per_switch = int(taper * (self.S[-1] - 1))
+		links_per_switch = max(links_per_switch, 1) # you need at least two links to ensure full connectivity, in which case the final dimension is just a ring
+		group_to_group_links_formed = [0] * self.S[-1] # number of connections formed between a group to another group
+		switch_in_group = [0] * self.S[-1] # coordinates of switches in each group
+		num_intra_group_switches = 1
+		num_intragroup_links = 0
+		for dim in range(len(self.S) - 1):
+			num_intra_group_switches *= self.S[dim]
+			num_intragroup_links += (self.S[dim] - 1)
+		for i in range(self.S[-1]):
+			group_to_group_links_formed[i] = [0] * self.S[-1]
+			switch_in_group[i] = []
+			coord = [0] * (len(self.S) - 1)
+			for intra_group_switch in range(num_intra_group_switches):
+				switch_in_group[group].append(coord + [i,])
+				coord = increment_switch_coord(coord, self.S[:-1])
+		for src_group in range(self.S[-1]):
+			src_switch = switch_in_group[src_group].pop() + [src_group,]
+			for link in range((num_intragroup_links + links_per_switch) - len(self.adjacency_list[tuple(src_switch)])):
+				target_group = find_minimally_connected_group(group_to_group_links_formed[src_group], src_group)
+				target_switch = tuple(src_switch[: -1] + (target_group,))
+				assert((num_intragroup_links + links_per_switch) - len(self.adjacency_list[target_switch]) > 0)
+				assert(src_switch not in self.adjacency_list[target_switch])
+				group_to_group_links_formed[src_group][target_group] += 1
+				group_to_group_links_formed[target_group][src_group] += 1
+				self.adjacency_list[src_switch].append(target_switch)
+				self.adjacency_list[target_switch].append(src_switch)
+		return
 
 
 	# checks to see if there is at least one dimension, returns True is so, and False otherwise
 	def share_dimension(self, coord1, coord2):
 		diff_sum = 0
 		# connect everything but the final dimension
-		for i in range(len(coord1) - 1):
+		for i in range(len(coord1)):
 			if coord1[i] != coord2[i]:
-				diff_sum += 1
+				if diff_sum == 0 and (i == (len(coord1) - 1)):
+					continue
+				else:
+					diff_sum += 1
+				
 		return (diff_sum == 1)
 
 
@@ -208,7 +271,7 @@ class TapapredHyperX:
 				mlu = max(mlu, traffic_load[src][dst] / adj_matrix[src][dst] / self.link_capacity)
 		return mlu
 
-
+thx = TaperedHyperX(3, [3,3,3], 1, 1)
 
 
 	
