@@ -31,7 +31,7 @@ def splitset(universe1):
 	return A, B
 
 class TaperedHyperX:
-	def __init__(self, L_arg, S_arg, K_arg, T_arg):
+	def __init__(self, L_arg, S_arg, K_arg, T_arg, taper):
 		self.L = L_arg
 		self.S = S_arg ## Note that 
 		assert(len(self.S) == 1 or len(self.S) == L_arg)
@@ -47,7 +47,7 @@ class TaperedHyperX:
 		# first generate all the switches
 		self.create_switches()
 		self.wire_static_network()
-		self.wire_tapered_dimension()
+		self.wire_tapered_dimension(taper)
 		return
 
 	def create_switches(self):
@@ -83,28 +83,27 @@ class TaperedHyperX:
 					continue
 				else:
 					self.adjacency_list[src].append(dst)
-			print len(self.adjacency_list[src])
-			print num_neighbors
 			assert(len(self.adjacency_list[src]) == num_neighbors)
 		return
 
 	# increments the coordinates of the switch, dimension_size is the number of indices max in each dimension
-	def increment_switch_coord(coord, dimension_size):
+	def increment_switch_coord(self, coord, dimension_size):
 		assert(len(dimension_size) == len(coord))
-		coord[-1] = dimension_size[-1]
+		coord[-1] = (coord[-1] + 1) % dimension_size[-1]
 		if coord[-1] != 0:
 			return coord
-		carry_forward = True
-		for i in range(len(dimension_size) - 2, 0, -1):
-			if not carry_forward:
-				break
-			else:
-				coord[i] = (coord[i] + 1) % self.S[i]
-				if coord[i] != 0:
-					carry_forward = False
-		return
+		else:
+			carry_forward = True
+			for i in range(len(dimension_size) - 2, -1, -1):				
+				if not carry_forward:
+					break
+				else:
+					coord[i] = (coord[i] + 1) % self.S[i]
+					if coord[i] != 0:
+						carry_forward = False
+			return coord
 
-	def find_minimally_connected_group(intergroup_connectivity, curr_group):
+	def find_minimally_connected_group(self, intergroup_connectivity, curr_group):
 		minimum = sys.maxsize
 		min_group = -1
 		for group in range(len(intergroup_connectivity)):
@@ -131,19 +130,24 @@ class TaperedHyperX:
 			switch_in_group[i] = []
 			coord = [0] * (len(self.S) - 1)
 			for intra_group_switch in range(num_intra_group_switches):
-				switch_in_group[group].append(coord + [i,])
-				coord = increment_switch_coord(coord, self.S[:-1])
+				switch_in_group[i].append(list(coord))
+				coord = self.increment_switch_coord(coord, self.S[:-1])
 		for src_group in range(self.S[-1]):
-			src_switch = switch_in_group[src_group].pop() + [src_group,]
-			for link in range((num_intragroup_links + links_per_switch) - len(self.adjacency_list[tuple(src_switch)])):
-				target_group = find_minimally_connected_group(group_to_group_links_formed[src_group], src_group)
-				target_switch = tuple(src_switch[: -1] + (target_group,))
-				assert((num_intragroup_links + links_per_switch) - len(self.adjacency_list[target_switch]) > 0)
-				assert(src_switch not in self.adjacency_list[target_switch])
-				group_to_group_links_formed[src_group][target_group] += 1
-				group_to_group_links_formed[target_group][src_group] += 1
-				self.adjacency_list[src_switch].append(target_switch)
-				self.adjacency_list[target_switch].append(src_switch)
+			print src_group
+			while len(switch_in_group[src_group]) > 0:
+				src_switch = switch_in_group[src_group].pop() + [src_group,]								
+				for link in range((num_intragroup_links + links_per_switch) - len(self.adjacency_list[tuple(src_switch)])):	
+					target_group = self.find_minimally_connected_group(group_to_group_links_formed[src_group], src_group)
+					# first, try this
+					if len(switch_in_group[target_group]) == 0:
+						print "intergroup_connectivity \n {}".format(group_to_group_links_formed) 
+					target_switch = tuple(switch_in_group[target_group][-1]) + (target_group,)
+					group_to_group_links_formed[src_group][target_group] += 1
+					group_to_group_links_formed[target_group][src_group] += 1
+					self.adjacency_list[tuple(src_switch)].append(target_switch)
+					self.adjacency_list[target_switch].append(tuple(src_switch))
+					if num_intragroup_links + links_per_switch == len(self.adjacency_list[target_switch]):
+						switch_in_group[target_group].pop()				
 		return
 
 
@@ -157,7 +161,6 @@ class TaperedHyperX:
 					continue
 				else:
 					diff_sum += 1
-				
 		return (diff_sum == 1)
 
 
@@ -223,8 +226,8 @@ class TaperedHyperX:
 		for dim_seq in all_dim_sequences:
 			path = [src, ]
 			curr_coord = list(self.id_to_coordinates[src])
-			for dim_ind in dim_seq:				
-				curr_coord[dim_ind] = dst_coord[dim_ind]				
+			for dim_ind in dim_seq:
+				curr_coord[dim_ind] = dst_coord[dim_ind]
 				path.append(self.coordinates_to_id[tuple(curr_coord)])
 			all_paths.append(path)
 		return all_paths
@@ -271,7 +274,14 @@ class TaperedHyperX:
 				mlu = max(mlu, traffic_load[src][dst] / adj_matrix[src][dst] / self.link_capacity)
 		return mlu
 
-thx = TaperedHyperX(3, [3,3,3], 1, 1)
+	def print_topology(self):
+		for coord in self.adjacency_list.keys():
+			print "\n\nCurrent coord: {}, id: {}".format(coord, self.coordinates_to_id[coord])
+			for neighbors in self.adjacency_list[coord]:
+				print "coord: {}, id, {}".format(neighbors, self.coordinates_to_id[neighbors])
+thx = TaperedHyperX(4, [3,3,3,3], 1, 1, 0.5)
+adj_mat = thx.adjacency_matrix()
+thx.print_topology()
 
 
 	
