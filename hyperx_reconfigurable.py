@@ -119,12 +119,17 @@ class TaperedHyperX:
 		links_per_switch = int(taper * (self.S[-1] - 1))
 		links_per_switch = max(links_per_switch, 1) # you need at least two links to ensure full connectivity, in which case the final dimension is just a ring
 		group_to_group_links_formed = [0] * self.S[-1] # number of connections formed between a group to another group
+
 		switch_in_group = [0] * self.S[-1] # coordinates of switches in each group
 		num_intra_group_switches = 1
 		num_intragroup_links = 0
+		print self.S
 		for dim in range(len(self.S) - 1):
 			num_intra_group_switches *= self.S[dim]
 			num_intragroup_links += (self.S[dim] - 1)
+		if links_per_switch * num_intra_group_switches % 2 == 1:
+			links_per_switch += 1
+			links_per_switch = min(links_per_switch, self.S[-1] - 1)
 		for i in range(self.S[-1]):
 			group_to_group_links_formed[i] = [0] * self.S[-1]
 			switch_in_group[i] = []
@@ -132,6 +137,7 @@ class TaperedHyperX:
 			for intra_group_switch in range(num_intra_group_switches):
 				switch_in_group[i].append(list(coord))
 				coord = self.increment_switch_coord(coord, self.S[:-1])
+		print group_to_group_links_formed
 		for src_group in range(self.S[-1]):
 			print src_group
 			while len(switch_in_group[src_group]) > 0:
@@ -279,7 +285,9 @@ class TaperedHyperX:
 			print "\n\nCurrent coord: {}, id: {}".format(coord, self.coordinates_to_id[coord])
 			for neighbors in self.adjacency_list[coord]:
 				print "coord: {}, id, {}".format(neighbors, self.coordinates_to_id[neighbors])
-thx = TaperedHyperX(4, [3,3,3,3], 1, 1, 0.5)
+
+
+thx = TaperedHyperX(4, [3,3,3,6], 1, 1, 0.5)
 adj_mat = thx.adjacency_matrix()
 thx.print_topology()
 
