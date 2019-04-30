@@ -286,6 +286,15 @@ class TaperedHyperX:
 			for neighbors in self.adjacency_list[coord]:
 				print "coord: {}, id, {}".format(neighbors, self.coordinates_to_id[neighbors])
 
+	def num_groups(self):
+		return self.S[-1]
+
+	# number of switches in all bar the final dimensions
+	def num_intragroup_switches(self):
+		num = 1
+		for i in self.S[:-1]:
+			num *= i
+		return num
 
 thx = TaperedHyperX(4, [3,3,3,6], 1, 1, 0.5)
 adj_mat = thx.adjacency_matrix()
