@@ -201,14 +201,30 @@ class TaperedHyperX:
 		# the number of links connectted in a full mesh
 		l_ij = int(num_intra_group_switches * links_per_switch / (self.S[-1] - 1))
 		intergroup_topology = [0] * self.S[-1]
+		links_left = [0] * self.S[-1]
 		for i in range(self.S[-1]):
 			intergroup_topology[i] = [l_ij] * self.S[-1]
 			intergroup_topology[i][i] = 0
-
+			links_left[i] = links_per_switch * num_intra_group_switches - (l_ij * (self.S[-1] - 1))
 		# now figure out the remainder
+		for i in range(self.S[-1]):
+			for j in range(self.S[-1]):
+				if links_used[i] == 0:
+					break
+				if links_used[j] == 0:
+					continue
+				if i == j or intergroup_topology[i][j] > l_ij:
+					continue
+				else:
+					intergroup_topology[i][j] += 1
+					intergroup_topology[j][i] += 1
+					links_left[i] -= 1
+					links_left[j] -= 1
+
+		
 		
 		# Step 2: next figure out to distribute each blocks links amongst the switches
-		
+		group_offset = [0] * self.S[-1]
 	#def wire_tapered_dimension(self, taper):
 	#	links_per_switch = int(taper * (self.S[-1] - 1))
 	#	links_per_switch = max(links_per_switch, 1) # you need at least two links to ensure full connectivity, in which case the final dimension is just a ring
