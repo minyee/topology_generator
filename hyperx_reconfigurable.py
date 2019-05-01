@@ -115,15 +115,33 @@ class TaperedHyperX:
 					min_group = group
 		return min_group
 
+	# selects the current group to connect links, returns true if we can continue wiring,
+	# returns false otherwise
+	def select_source_group(self, formed_links, maxlink):
+		idx = -1
+		minimum = sys.maxsize
+		min_idx = 0
+		continue_wiring = False
+		wirable_groups = 0
+		print formed_links
+		for entry in formed_links:
+			idx += 1
+			if entry < maxlink:
+				wirable_groups += 1
+			if minimum > entry:
+				minimum = entry
+				min_idx = idx
+		print min_idx
+		return (wirable_groups >= 2), min_idx
+
+
 	def wire_tapered_dimension(self, taper):
 		links_per_switch = int(taper * (self.S[-1] - 1))
 		links_per_switch = max(links_per_switch, 1) # you need at least two links to ensure full connectivity, in which case the final dimension is just a ring
 		group_to_group_links_formed = [0] * self.S[-1] # number of connections formed between a group to another group
-
 		switch_in_group = [0] * self.S[-1] # coordinates of switches in each group
 		num_intra_group_switches = 1
 		num_intragroup_links = 0
-		print self.S
 		for dim in range(len(self.S) - 1):
 			num_intra_group_switches *= self.S[dim]
 			num_intragroup_links += (self.S[dim] - 1)
@@ -137,24 +155,98 @@ class TaperedHyperX:
 			for intra_group_switch in range(num_intra_group_switches):
 				switch_in_group[i].append(list(coord))
 				coord = self.increment_switch_coord(coord, self.S[:-1])
-		print group_to_group_links_formed
-		for src_group in range(self.S[-1]):
-			print src_group
-			while len(switch_in_group[src_group]) > 0:
-				src_switch = switch_in_group[src_group].pop() + [src_group,]								
-				for link in range((num_intragroup_links + links_per_switch) - len(self.adjacency_list[tuple(src_switch)])):	
-					target_group = self.find_minimally_connected_group(group_to_group_links_formed[src_group], src_group)
-					# first, try this
-					if len(switch_in_group[target_group]) == 0:
-						print "intergroup_connectivity \n {}".format(group_to_group_links_formed) 
-					target_switch = tuple(switch_in_group[target_group][-1]) + (target_group,)
-					group_to_group_links_formed[src_group][target_group] += 1
-					group_to_group_links_formed[target_group][src_group] += 1
-					self.adjacency_list[tuple(src_switch)].append(target_switch)
-					self.adjacency_list[target_switch].append(tuple(src_switch))
-					if num_intragroup_links + links_per_switch == len(self.adjacency_list[target_switch]):
-						switch_in_group[target_group].pop()				
+		wires_used = [0] * self.S[-1]
+		max_link_per_group = links_per_switch * num_intra_group_switches
+		continue_wiring = True
+		src_group = 0
+		while continue_wiring:	
+			print "src_group: {}".format(src_group)
+			src_switch = switch_in_group[src_group][-1] + [src_group,]
+			switch_in_group[src_group].pop()
+			while (num_intragroup_links + links_per_switch) == len(self.adjacency_list[tuple(src_switch)]):
+					src_switch =  switch_in_group[target_group].pop()
+					switch_in_group[src_group].pop()
+			for link in range((num_intragroup_links + links_per_switch) - len(self.adjacency_list[tuple(src_switch)])):	
+				continue_finding, target_group = self.find_minimally_connected_group(group_to_group_links_formed[src_group], src_group)
+				while not continue_finding:
+
+					continue_finding, target_group = self.find_minimally_connected_group(group_to_group_links_formed[src_group], src_group)
+				if len(switch_in_group[target_group]) == 0:
+					print "intergroup_connectivity \n {}".format(group_to_group_links_formed) 
+				target_switch = tuple(switch_in_group[target_group][-1]) + (target_group,)
+				group_to_group_links_formed[src_group][target_group] += 1
+				group_to_group_links_formed[target_group][src_group] += 1
+				self.adjacency_list[tuple(src_switch)].append(target_switch)
+				self.adjacency_list[target_switch].append(tuple(src_switch))
+				print "wtf\n\n"
+				wires_used[src_group] += 1
+				wires_used[target_group] += 1
+				if num_intragroup_links + links_per_switch == len(self.adjacency_list[target_switch]):
+					switch_in_group[target_group].pop()
+			print wires_used
+			continue_wiring, src_group = self.select_source_group(wires_used, max_link_per_group)
 		return
+
+	def wire_tapered_dimension(self, taper):
+		links_per_switch = int(taper * (self.S[-1] - 1))
+		# you need at least two links to ensure full connectivity, in which case the final dimension is just a ring
+		links_per_switch = max(links_per_switch, 1)
+		num_intra_group_switches = 1
+		num_intragroup_links = 0
+		for dim in range(len(self.S) - 1):
+			num_intra_group_switches *= self.S[dim]
+			num_intragroup_links += (self.S[dim] - 1)
+
+		# Step 1: figure out interblock link count first
+		# the number of links connectted in a full mesh
+		l_ij = int(num_intra_group_switches * links_per_switch / (self.S[-1] - 1))
+		intergroup_topology = [0] * self.S[-1]
+		for i in range(self.S[-1]):
+			intergroup_topology[i] = [l_ij] * self.S[-1]
+			intergroup_topology[i][i] = 0
+
+		# now figure out the remainder
+		
+		# Step 2: next figure out to distribute each blocks links amongst the switches
+		
+	#def wire_tapered_dimension(self, taper):
+	#	links_per_switch = int(taper * (self.S[-1] - 1))
+	#	links_per_switch = max(links_per_switch, 1) # you need at least two links to ensure full connectivity, in which case the final dimension is just a ring
+	#	group_to_group_links_formed = [0] * self.S[-1] # number of connections formed between a group to another group
+	#	switch_in_group = [0] * self.S[-1] # coordinates of switches in each group
+	#	num_intra_group_switches = 1
+	#	num_intragroup_links = 0
+	#	print self.S
+	#	for dim in range(len(self.S) - 1):
+	#		num_intra_group_switches *= self.S[dim]
+	#		num_intragroup_links += (self.S[dim] - 1)
+	#	if links_per_switch * num_intra_group_switches % 2 == 1:
+	#		links_per_switch += 1
+	#		links_per_switch = min(links_per_switch, self.S[-1] - 1)
+	#	for i in range(self.S[-1]):
+	#		group_to_group_links_formed[i] = [0] * self.S[-1]
+	#		switch_in_group[i] = []
+	#		coord = [0] * (len(self.S) - 1)
+	#		for intra_group_switch in range(num_intra_group_switches):
+	#			switch_in_group[i].append(list(coord))
+	#			coord = self.increment_switch_coord(coord, self.S[:-1])
+	#	print group_to_group_links_formed
+	#	for src_group in range(self.S[-1]):
+	#		while len(switch_in_group[src_group]) > 0:
+	#			src_switch = switch_in_group[src_group].pop() + [src_group,]								
+	#			for link in range((num_intragroup_links + links_per_switch) - len(self.adjacency_list[tuple(src_switch)])):	
+	#				target_group = self.find_minimally_connected_group(group_to_group_links_formed[src_group], src_group)
+	#				# first, try this
+	#				if len(switch_in_group[target_group]) == 0:
+	#					print "intergroup_connectivity \n {}".format(group_to_group_links_formed) 
+	#				target_switch = tuple(switch_in_group[target_group][-1]) + (target_group,)
+	#				group_to_group_links_formed[src_group][target_group] += 1
+	#				group_to_group_links_formed[target_group][src_group] += 1
+	#				self.adjacency_list[tuple(src_switch)].append(target_switch)
+	#				self.adjacency_list[target_switch].append(tuple(src_switch))
+	#				if num_intragroup_links + links_per_switch == len(self.adjacency_list[target_switch]):
+	#					switch_in_group[target_group].pop()				
+	#	return
 
 
 	# checks to see if there is at least one dimension, returns True is so, and False otherwise
@@ -296,9 +388,9 @@ class TaperedHyperX:
 			num *= i
 		return num
 
-thx = TaperedHyperX(4, [3,3,3,6], 1, 1, 0.5)
-adj_mat = thx.adjacency_matrix()
-thx.print_topology()
+#thx = TaperedHyperX(4, [3,3,3,6], 1, 1, 0.5)
+#adj_mat = thx.adjacency_matrix()
+#thx.print_topology()
 
 
 	

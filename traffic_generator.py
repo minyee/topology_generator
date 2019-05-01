@@ -34,25 +34,34 @@ def generate_clustered_traffic(nnodes, nclusters):
 
 # generates the traffic crossing from one dimension of the hyper x plan to the next in the final dimension
 # group to group is generated in a bipartite like manner
-def generate_hpx_intergroup_bipartite(tapered_hyperx, nnodes):
+def generate_hpx_intergroup_bipartite(tapered_hyperx):
 	num_hyperx_groups = tapered_hyperx.num_groups()
 	num_intragroup_switches = tapered_hyperx.num_intragroup_switches()
 	switches_by_groups = [0] * num_hyperx_groups
 	for i in range(num_hyperx_groups):
 		switches_by_groups[i] = []
-	# insert all the switches into the 
+	# insert all the switches into the set
 	for coord in tapered_hyperx.adjacency_list.keys():
 		switches_by_groups[coord[-1]].append(tuple(coord))
 	groups = range(num_hyperx_groups)
 	intergroup_tm = [0] * num_hyperx_groups
-	for g in groups:
-		intergroup_tm[g] = [0] * num_hyperx_groups
 	# if there are even number of groups
+	tm = [0] * (num_hyperx_groups * num_intragroup_switches)
+	for swid in range(num_hyperx_groups * num_intragroup_switches):
+		tm[swid] = [0] * (num_hyperx_groups * num_intragroup_switches)
+	# now finally distribute the traffic across its constituents
 	for src_group in groups:
 		src_set = (src_group <= num_hyperx_groups/2)
 		for dst_group in groups:
 			dst_set = (dst_group <= num_hyperx_groups/2)
 			if src_set != dst_set:
-				intergroup_tm[src_group][dst_group] = 1000.
-	
+				for i in range(num_intragroup_switches):
+					coord = switches_by_groups[src_group][i]
+					target_coord = switches_by_groups[dst_group][random.randint(0, len(switches_by_groups[dst_group]) - 1)]
+				 	src_id = tapered_hyperx.coordinates_to_id(coord)
+				 	dst_id = tapered_hyperx.coordinates_to_id(target_coord)
+				 	tm[src_id][dst_id] += 1000. / num_intragroup_switches
+	return tm
 
+
+	
