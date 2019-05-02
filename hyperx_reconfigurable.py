@@ -255,6 +255,30 @@ class TaperedHyperX:
 				#assert(src_links_left == 0)
 		#print intergroup_topology
 		return
+	def wire_tapered_dimension_ilp(self, taper):
+		links_per_switch = int(taper * (self.S[-1] - 1))
+		links_per_switch = max(links_per_switch, 1)
+		decision_vars = {}
+		num_intra_group_switches = 1
+		num_intragroup_links = 0
+		for dim in range(len(self.S) - 1):
+			num_intra_group_switches *= self.S[dim]
+			num_intragroup_links += (self.S[dim] - 1) 		
+		# add the radix constraints of each group
+		for group in range(self.S[-1]):
+			decision_vars[group] = {}
+			coord = [0] * (len(self.S) - 1)
+			# constraint_obj = 
+			for intra_group_switch in range(num_intra_group_switches):
+				switch_in_group[i].append(list(coord))
+				coord = tuple(self.increment_switch_coord(coord, self.S[:-1]) + [group,])
+				decision_vars[group][coord] = model.addVar(0, links_per_switch, 0., GRB.INTEGER, str(coord))
+				+= decision_vars
+
+		# add the radix constraints
+
+		# add the connectivity constraints
+		# finally add the symmetric connectivity matrix constraint
 
 	# check validity of topology
 	def check_topology_validity(self, final_dim_link):
