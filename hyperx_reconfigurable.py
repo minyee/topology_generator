@@ -1,8 +1,8 @@
 import sys
-from functools import reduce
+from gurobipy import *
 import random
 import copy
-
+import math
 ## normally describes just a static network without optical circuit switches, direct network because every switch is supposed to be attached to a terminal
 
 def cart_product(set1, set2):
@@ -47,7 +47,7 @@ class TaperedHyperX:
 		# first generate all the switches
 		self.create_switches()
 		self.wire_static_network()
-		self.wire_tapered_dimension(taper)
+		self.wire_tapered_dimension_ilp(taper)
 		return
 
 	def create_switches(self):
@@ -255,6 +255,7 @@ class TaperedHyperX:
 				#assert(src_links_left == 0)
 		#print intergroup_topology
 		return
+
 	def wire_tapered_dimension_ilp(self, taper):
 		links_per_switch = int(taper * (self.S[-1] - 1))
 		links_per_switch = max(links_per_switch, 1)
@@ -264,20 +265,74 @@ class TaperedHyperX:
 		for dim in range(len(self.S) - 1):
 			num_intra_group_switches *= self.S[dim]
 			num_intragroup_links += (self.S[dim] - 1) 		
-		# add the radix constraints of each group
+		num_intergroup_links = num_intra_group_switches * links_per_switch
+		model = Model("topology ilp")
+		# form all the switch coordinates
+		switch_in_group = [0] * self.S[-1]
 		for group in range(self.S[-1]):
-			decision_vars[group] = {}
 			coord = [0] * (len(self.S) - 1)
-			# constraint_obj = 
+			switch_in_group[group] = []
 			for intra_group_switch in range(num_intra_group_switches):
-				switch_in_group[i].append(list(coord))
-				coord = tuple(self.increment_switch_coord(coord, self.S[:-1]) + [group,])
-				decision_vars[group][coord] = model.addVar(0, links_per_switch, 0., GRB.INTEGER, str(coord))
-				+= decision_vars
+				switch_in_group[group].append(list(coord))
+				coord = self.increment_switch_coord(coord, self.S[:-1])
+		# prelude, set up all the decision optimization variables first
+		connectivity_variables = {}
+		for src_group in range(self.S[-1] - 1):
+			for dst_group in range(src_group + 1, self.S[-1], 1):
+				for coord1 in switch_in_group[src_group]:
+					src_coord = tuple(coord1 + [src_group,])
+					for coord2 in switch_in_group[dst_group]:
+						dst_coord = tuple(coord2 + [dst_group,])
+						key = (self.coordinates_to_id[src_coord], self.coordinates_to_id[dst_coord])
+						connectivity_variables[key] = model.addVar(0, 1, 0., GRB.INTEGER, "(" + str(self.coordinates_to_id[src_coord]) + ", " + str(self.coordinates_to_id[dst_coord]) + ")")
 
-		# add the radix constraints
-
-		# add the connectivity constraints
+		# now add in the the connectivity constraints
+		intergroup_connectivity_constraints = {}
+		for src_group in range(self.S[-1] - 1):
+			for dst_group in range(src_group + 1, self.S[-1], 1):
+				intergroup_connectivity_constraints[(src_group, dst_group)] = LinExpr()				
+				for coord1 in switch_in_group[src_group]:
+					src_coord = tuple(coord1 + [src_group])
+					for coord2 in switch_in_group[dst_group]:
+						dst_coord = tuple(coord2 + [dst_group])
+						key = (self.coordinates_to_id[src_coord], self.coordinates_to_id[dst_coord])
+						intergroup_connectivity_constraints[(src_group, dst_group)].addTerms(1., connectivity_variables[key])
+		# figure out where to add the constraints here
+		for src_group in range(self.S[-1] - 1):
+			for dst_group in range(src_group + 1, self.S[-1], 1):
+				model.addConstr(lhs=intergroup_connectivity_constraints[(src_group, dst_group)], sense=GRB.GREATER_EQUAL, rhs=math.floor(num_intergroup_links / (self.S[-1] - 1)), name="connectivity_lb, {} - {}".format(src_group, dst_group))
+				model.addConstr(lhs=intergroup_connectivity_constraints[(src_group, dst_group)], sense=GRB.LESS_EQUAL, rhs=math.ceil(num_intergroup_links / (self.S[-1] - 1)), name="connectivity_ub, {} - {}".format(src_group, dst_group))
+		# Finally, optimize the model, and if successful, then create the topology
+		try:
+			topology_matrix = [0] * self.S[-1]
+			for i in range(self.S[-1]):
+				topology_matrix[i] = [0] * self.S[-1]
+			model.optimize()
+			for src_group in range(self.S[-1] - 1):
+				for dst_group in range(src_group + 1, self.S[-1], 1):
+					for coord1 in switch_in_group[src_group]:
+						src_coord = tuple(coord1 + [src_group])
+						for coord2 in switch_in_group[dst_group]:
+							dst_coord = tuple(coord2 + [dst_group])
+							var_name = "(" + str(self.coordinates_to_id[src_coord]) + ", " + str(self.coordinates_to_id[dst_coord]) + ")"
+							var = model.getVarByName(var_name)
+							if var.x >= 1:
+								topology_matrix[src_group][dst_group] += var.x
+								topology_matrix[dst_group][src_group] += var.x
+								self.adjacency_list[src_coord].append(dst_coord)
+								self.adjacency_list[dst_coord].append(src_coord)
+			for src_group in range(self.S[-1]):
+				row = "| "
+				for entry in topology_matrix[src_group]:
+					row += (str(entry) + " ")
+				row += "|\n"
+				print row
+		except GurobiError as e:
+			print ("Error code " + str(e. errno ) + ": " + str(e))
+		except AttributeError :
+			print ("Encountered an attribute error ")
+		return 
+		# now finally read the value of all of the variables
 		# finally add the symmetric connectivity matrix constraint
 
 	# check validity of topology

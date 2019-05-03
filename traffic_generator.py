@@ -58,8 +58,8 @@ def generate_hpx_intergroup_bipartite(tapered_hyperx):
 				for i in range(num_intragroup_switches):
 					coord = switches_by_groups[src_group][i]
 					target_coord = switches_by_groups[dst_group][random.randint(0, len(switches_by_groups[dst_group]) - 1)]
-				 	src_id = tapered_hyperx.coordinates_to_id(coord)
-				 	dst_id = tapered_hyperx.coordinates_to_id(target_coord)
+				 	src_id = tapered_hyperx.coordinates_to_id[coord]
+				 	dst_id = tapered_hyperx.coordinates_to_id[target_coord]
 				 	tm[src_id][dst_id] += 1000. / num_intragroup_switches
 	return tm
 
