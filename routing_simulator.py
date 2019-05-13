@@ -13,3 +13,6 @@ links_per_switch = max(links_per_switch, 1)
 assert(tpx.check_topology_validity(links_per_switch))
 # next generate the traffic matrices
 tm = traffic_gen.generate_hpx_intergroup_bipartite(tpx)
+
+mlu = tpx.route_wcmp(tm)
+print mlu

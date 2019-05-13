@@ -475,7 +475,7 @@ class TaperedHyperX:
 		return all_paths
 
 	# routes a traffic matrix using wcmp
-	def route_wcmp(traffic_matrix, network):
+	def route_wcmp(self, traffic_matrix):
 		adj_matrix = self.adjacency_matrix()
 		num_switches = len(adj_matrix)
 		traffic_load = [0] * num_switches # traffic load on each link between links
@@ -483,28 +483,28 @@ class TaperedHyperX:
 			traffic_load[i] = [0] * num_switches
 		for src in range(num_switches):
 			for dst in range(num_switches):
-				if src == dst:
-					continue
-				path_total_weight = 0
-				path_set = self.shortest_path_set(adj_matrix, src, dst)
-				path_weight = []
-				for path in path_set:	
-					path_min_capacity = self.link_capacity
-					curr_node = path[0]
-					for i in range(1, len(path), 1):
-						intermediate_swid = path[i]
-						path_min_capacity = min(float(path_min_capacity), adj_matrix[curr_node][intermediate_swid] * self.link_capacity)
-						curr_node = intermediate_swid
-					path_weight.append(path_min_capacity)
-					path_total_weight += path_min_capacity
-				path_index = 0
-				for path in path_set:
-					curr_node = path[0]
-					for i in range(1, len(path), 1):
-						intermediate_swid = path[i]
-						traffic_load[curr_node][intermediate_swid] += (traffic_matrix[src][dst] * (path_weight[path_index]/path_total_weight))
-						curr_node = intermediate_swid
-					path_index += 1
+				if src != dst:
+					path_total_weight = 0
+					path_set = self.shortest_path_set(adj_matrix, src, dst)
+					path_weight = []
+					for path in path_set:	
+						path_min_capacity = self.link_capacity
+						curr_node = path[0]
+						for i in range(1, len(path), 1):
+							intermediate_swid = path[i]
+							path_min_capacity = min(float(path_min_capacity), adj_matrix[curr_node][intermediate_swid] * self.link_capacity)
+							curr_node = intermediate_swid
+						path_weight.append(path_min_capacity)
+						path_total_weight += path_min_capacity
+					path_index = 0
+					assert(path_total_weight >= 0)
+					for path in path_set:
+						curr_node = path[0]
+						for i in range(1, len(path), 1):
+							intermediate_swid = path[i]
+							traffic_load[curr_node][intermediate_swid] += (traffic_matrix[src][dst] * (path_weight[path_index]/path_total_weight))
+							curr_node = intermediate_swid
+						path_index += 1
 		# finally, compute the mlu
 		mlu = 0
 		for src in range(num_switches):
