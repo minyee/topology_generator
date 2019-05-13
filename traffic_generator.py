@@ -26,10 +26,25 @@ def generate_bipartite_traffic(nnodes):
 # returns a tm where tm is split into regions of clusters which are highly 
 # communicative, and no communication elsewhere
 def generate_clustered_traffic(nnodes, nclusters):
-	tm = [0. ] * nnodes 
-	num_nodes_per_cluster = nnodes / nclusters
+	tm = [0. ] * nnodes
 	for i in range(nnodes):
-		tm[i] = [0.] * nnodes
+		tm[i] = [0.] * radix
+	num_per_cluster = nnodes / nclusters
+	leftovers = nnodes % nclusters
+	sets = [[]] * nclusters
+	curr_ind = 0
+	for cluster in range(nclusters):
+		for i in range(num_per_cluster):
+			sets[cluster].append(curr_ind)
+			curr_ind += 1
+		if leftovers > 0:
+			sets[cluster].append(curr_ind)
+			leftovers -= 1
+			curr_ind += 1
+		for src in sets[cluster]:
+			for dst in sets[cluster]:
+				if src != dst:
+					tm[src][dst] = traffic_volume / (len(sets[cluster]) - 1)
 	return tm
 
 # generates the traffic crossing from one dimension of the hyper x plan to the next in the final dimension
