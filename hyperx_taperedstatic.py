@@ -3,6 +3,7 @@ from gurobipy import *
 import random
 import copy
 import math
+import networkx as nx
 ## normally describes just a static network without optical circuit switches, direct network because every switch is supposed to be attached to a terminal
 
 def cart_product(set1, set2):
@@ -133,59 +134,6 @@ class TaperedHyperX:
 				min_idx = idx
 		print min_idx
 		return (wirable_groups >= 2), min_idx
-
-
-	#def wire_tapered_dimension(self, taper):
-	#	links_per_switch = int(taper * (self.S[-1] - 1))
-	#	links_per_switch = max(links_per_switch, 1) # you need at least two links to ensure full connectivity, in which case the final dimension is just a ring
-	#	group_to_group_links_formed = [0] * self.S[-1] # number of connections formed between a group to another group
-	#	switch_in_group = [0] * self.S[-1] # coordinates of switches in each group
-	#	num_intra_group_switches = 1
-	#	num_intragroup_links = 0
-	#	for dim in range(len(self.S) - 1):
-	#		num_intra_group_switches *= self.S[dim]
-	#		num_intragroup_links += (self.S[dim] - 1)
-	#	if links_per_switch * num_intra_group_switches % 2 == 1:
-	#		links_per_switch += 1
-	#		links_per_switch = min(links_per_switch, self.S[-1] - 1)
-	#	for i in range(self.S[-1]):
-	#		group_to_group_links_formed[i] = [0] * self.S[-1]
-	#		switch_in_group[i] = []
-	#		coord = [0] * (len(self.S) - 1)
-	#		for intra_group_switch in range(num_intra_group_switches):
-	#			switch_in_group[i].append(list(coord))
-	#			coord = self.increment_switch_coord(coord, self.S[:-1])
-	#	wires_used = [0] * self.S[-1]
-	#	max_link_per_group = links_per_switch * num_intra_group_switches
-	#	continue_wiring = True
-	#	src_group = 0
-	#	while continue_wiring:	
-	#		print "src_group: {}".format(src_group)
-	#		src_switch = switch_in_group[src_group][-1] + [src_group,]
-	#		switch_in_group[src_group].pop()
-	#		while (num_intragroup_links + links_per_switch) == len(self.adjacency_list[tuple(src_switch)]):
-	#				src_switch =  switch_in_group[target_group].pop()
-	#				switch_in_group[src_group].pop()
-	#		for link in range((num_intragroup_links + links_per_switch) - len(self.adjacency_list[tuple(src_switch)])):	
-	#			continue_finding, target_group = self.find_minimally_connected_group(group_to_group_links_formed[src_group], src_group)
-	#			while not continue_finding:
-	#
-	#				continue_finding, target_group = self.find_minimally_connected_group(group_to_group_links_formed[src_group], src_group)
-	#			if len(switch_in_group[target_group]) == 0:
-	#				print "intergroup_connectivity \n {}".format(group_to_group_links_formed) 
-	#			target_switch = tuple(switch_in_group[target_group][-1]) + (target_group,)
-	#			group_to_group_links_formed[src_group][target_group] += 1
-	#			group_to_group_links_formed[target_group][src_group] += 1
-	#			self.adjacency_list[tuple(src_switch)].append(target_switch)
-	#			self.adjacency_list[target_switch].append(tuple(src_switch))
-	#			print "wtf\n\n"
-	#			wires_used[src_group] += 1
-	#			wires_used[target_group] += 1
-	#			if num_intragroup_links + links_per_switch == len(self.adjacency_list[target_switch]):
-	#				switch_in_group[target_group].pop()
-	#		print wires_used
-	#		continue_wiring, src_group = self.select_source_group(wires_used, max_link_per_group)
-	#	return
 
 	def wire_tapered_dimension(self, taper):
 		links_per_switch = int(taper * (self.S[-1] - 1))
@@ -424,13 +372,12 @@ class TaperedHyperX:
 		mat = [0] * num_switches
 		offset = 0
 		coord_to_index = {}
-		for sw_coord in self.adjacency_list.keys():
-			coord_to_index[sw_coord] = offset
-			mat[offset] = [0] * num_switches
-			offset += 1
-		for sw in self.adjacency_list.keys():
-			for neighbor in self.adjacency_list[sw]:
-				mat[coord_to_index[sw]][coord_to_index[neighbor]] += 1
+		for src_coord in self.adjacency_list.keys():
+			src = self.coordinates_to_id[src_coord]
+			mat[src] = [0] * num_switches
+			for dst_coord in self.adjacency_list[src_coord]:
+				dst = self.coordinates_to_id[dst_coord]
+				mat[src][dst] += 1
 		return mat
 
 	def path_recur(self, remaining_entries):
@@ -451,42 +398,58 @@ class TaperedHyperX:
 
 	# returns a set of paths (list of vertices which are id of switches) which are shortest paths 
 	# between a src and dst
-	def shortest_path_set(self, adj_matrix, src, dst):
+	def shortest_path_set(self, adj_matrix, src, dst, G):
+		# sense if the src and dst are separated in the tapered dimension. That is, if the last coordinate is the same
+		# if they are the same, can do the normal way of using shortest_path_set
+		# if not, then need to find an entrance switch that has a direct connectivity to the final dimension
 		src_coord = self.id_to_coordinates[src]
 		dst_coord = self.id_to_coordinates[dst]
 		dims_diffs = []
-		print src_coord
-		print dst_coord
 		for i in range(len(src_coord)):
 			if src_coord[i] != dst_coord[i]:
 				dims_diffs.append(i)
-		all_dim_sequences = self.path_recur(dims_diffs)
-		print all_dim_sequences
-		all_paths = []
-		# the path_recur function merely returns all permutations of sequences of dimensions to take
-		# we still need to transform them into id's of the switches
-		for dim_seq in all_dim_sequences:
-			path = [src, ]
-			curr_coord = list(self.id_to_coordinates[src])
-			for dim_ind in dim_seq:
-				curr_coord[dim_ind] = dst_coord[dim_ind]
-				path.append(self.coordinates_to_id[tuple(curr_coord)])
-			all_paths.append(path)
-		return all_paths
+		if self.L - 1 not in dims_diffs:
+			all_dim_sequences = self.path_recur(dims_diffs)
+			all_paths = []
+			# the path_recur function merely returns all permutations of sequences of dimensions to take
+			# we still need to transform them into id's of the switches
+			for dim_seq in all_dim_sequences:
+				path = [src, ]
+				curr_coord = list(self.id_to_coordinates[src])
+				for dim_ind in dim_seq:
+					curr_coord[dim_ind] = dst_coord[dim_ind]
+					path.append(self.coordinates_to_id[tuple(curr_coord)])
+				all_paths.append(path)
+			return all_paths
+		else:
+			# first, form the graph object
+			# now that the graph has been built fully, time to return all paths
+			all_paths = []
+			for path in nx.all_shortest_paths(G, source=src, target=dst):
+				all_paths.append(path)
+			return all_paths
+
 
 	# routes a traffic matrix using wcmp
 	def route_wcmp(self, traffic_matrix):
 		adj_matrix = self.adjacency_matrix()
 		num_switches = len(adj_matrix)
 		traffic_load = [0] * num_switches # traffic load on each link between links
+		G = nx.Graph()
+		G.add_nodes_from(range(self.num_groups() * self.num_intragroup_switches()))
+		for i in range(len(adj_matrix)):
+			for j in range(len(adj_matrix)):
+				if i != j and adj_matrix[i][j] > 0:
+					G.add_edge(i, j)
 		for i in range(num_switches):
 			traffic_load[i] = [0] * num_switches
 		for src in range(num_switches):
 			for dst in range(num_switches):
 				if src != dst:
 					path_total_weight = 0
-					path_set = self.shortest_path_set(adj_matrix, src, dst)
+					path_set = self.shortest_path_set(adj_matrix, src, dst, G)
 					path_weight = []
+					#print "src: {} coord - {}, dst: {} coord - {}".format(src, self.id_to_coordinates[src], dst, self.id_to_coordinates[dst])
 					for path in path_set:	
 						path_min_capacity = self.link_capacity
 						curr_node = path[0]
@@ -497,7 +460,6 @@ class TaperedHyperX:
 						path_weight.append(path_min_capacity)
 						path_total_weight += path_min_capacity
 					path_index = 0
-					assert(path_total_weight >= 0)
 					for path in path_set:
 						curr_node = path[0]
 						for i in range(1, len(path), 1):
