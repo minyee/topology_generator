@@ -1,11 +1,11 @@
 import sys, math
-import hyperx_reconfigurable as rhpx
+import hyperx_taperstatic as thpx
 import hyperx as hpx
 import traffic_generator as traffic_gen
 
 taper = 0.5
 dimensions = [3,3,3, 6]
-tpx = rhpx.TaperedHyperX(len(dimensions), dimensions, 1, 1, taper)
+tpx = thpx.TaperedHyperX(len(dimensions), dimensions, 1, 1, taper)
 #tpx.print_topology()
 links_per_switch = int(taper * (dimensions[-1] - 1))
 links_per_switch = max(links_per_switch, 1)
@@ -18,7 +18,7 @@ print "MLU with taper of : {} is: {}".format(taper, mlu)
 
 
 taper = 1
-tpx = rhpx.TaperedHyperX(len(dimensions), dimensions, 1, 1, taper)
+tpx = thpx.TaperedHyperX(len(dimensions), dimensions, 1, 1, taper)
 #tpx.print_topology()
 links_per_switch = int(taper * (dimensions[-1] - 1))
 links_per_switch = max(links_per_switch, 1)
