@@ -115,15 +115,15 @@ class ReconfigurableHyperX:
 				decision_vars[(i, j)] = model.addVar(0,intergroup_links, 0., GRB.CONTINUOUS, "{}".format((i,j)))
 		mu = model.addVar(0, GRB.INFINITY, 1., GRB.CONTINUOUS, "mu")
 		# ensuring the mu is the maximum traffic scale up1
-		for i in range(self.S[-1]):
-			for j in range(i, self.S[-1], 1):
+		for i in range(self.S[-1] - 1):
+			for j in range(i + 1, self.S[-1], 1):
 				model.addConstr(lhs=decision_vars[(i,j)], sense=GRB.GREATER_EQUAL, rhs=mu * (intergroup_traffic_matrix[i][j] + intergroup_traffic_matrix[j][i]))
 		# number of incoming and outgoing links constraint
 		for curr_group in range(self.S[-1]):
 			link_constraint = LinExpr()
 			for target_group in range(self.S[-1]):
 				if curr_group != target_group:
-					ind = (min(curr_group, target_group.), max(curr_group, target_group))
+					ind = (min(curr_group, target_group), max(curr_group, target_group))
 					link_constraint.addTerms(1., decision_vars[(ind)])
 			model.addConstr(lhs=link_constraint, sense=GRB.EQUAL, rhs=intergroup_links)
 		model.setObjective(mu, GRB.MAXIMIZE)
@@ -145,6 +145,7 @@ class ReconfigurableHyperX:
 			num_intra_group_switches *= self.S[dim]
 			num_intragroup_links += (self.S[dim] - 1) 		
 		num_intergroup_links = num_intra_group_switches * links_per_switch
+		logical_intergroup_topology = self.compute_logical_intergroup_connectivity(intergroup_traffic_matrix, num_intergroup_links)
 		model = Model("topology ilp")
 		# form all the switch coordinates
 		switch_in_group = [0] * self.S[-1]
@@ -179,8 +180,8 @@ class ReconfigurableHyperX:
 		# figure out where to add the constraints here
 		for src_group in range(self.S[-1] - 1):
 			for dst_group in range(src_group + 1, self.S[-1], 1):
-				model.addConstr(lhs=intergroup_connectivity_constraints[(src_group, dst_group)], sense=GRB.GREATER_EQUAL, rhs=math.floor(num_intergroup_links / (self.S[-1] - 1)), name="connectivity_lb, {} - {}".format(src_group, dst_group))
-				model.addConstr(lhs=intergroup_connectivity_constraints[(src_group, dst_group)], sense=GRB.LESS_EQUAL, rhs=math.ceil(num_intergroup_links / (self.S[-1] - 1)), name="connectivity_ub, {} - {}".format(src_group, dst_group))
+				model.addConstr(lhs=intergroup_connectivity_constraints[(src_group, dst_group)], sense=GRB.GREATER_EQUAL, rhs=math.floor(logical_intergroup_topology[src_group][dst_group]), name="connectivity_lb, {} - {}".format(src_group, dst_group))
+				model.addConstr(lhs=intergroup_connectivity_constraints[(src_group, dst_group)], sense=GRB.LESS_EQUAL, rhs=math.ceil(logical_intergroup_topology[src_group][dst_group]), name="connectivity_ub, {} - {}".format(src_group, dst_group))
 		# Finally, optimize the model, and if successful, then create the topology
 		try:
 			topology_matrix = [0] * self.S[-1]
