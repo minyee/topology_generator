@@ -133,6 +133,10 @@ class ReconfigurableHyperX:
 				var = model.getVarByName("{}".format((i,j)))
 				logical_intergroup_topology[i][j] = var.x
 				logical_intergroup_topology[j][i] = var.x # check if this should be populated here
+		print "\n\n\n\nintergroup_traffic_matrix\n\n\n\n"
+		self.print_matrix(intergroup_traffic_matrix)
+		print "\n\n\n\nlogical_intergroup_topology\n\n\n\n"
+		self.print_matrix(logical_intergroup_topology)
 		return logical_intergroup_topology
 
 	def bandwidth_steer_ilp(self, taper, intergroup_traffic_matrix):
@@ -356,21 +360,33 @@ class ReconfigurableHyperX:
 							curr_node = intermediate_swid
 						path_index += 1
 		# finally, compute the mlu
-		mlu = 0
+		mlu = 0.
+		alu = 0.
+		link_count = 0
 		for src in range(num_switches):
 			for dst in range(num_switches):
-				if src == dst:
+				if src == dst or adj_matrix[src][dst] <= 0:
 					continue
-				if adj_matrix[src][dst] <= 0:
-					continue
-				mlu = max(mlu, traffic_load[src][dst] / adj_matrix[src][dst] / self.link_capacity)
-		return mlu
+				else:
+					mlu = max(mlu, traffic_load[src][dst] / adj_matrix[src][dst] / self.link_capacity)
+					alu += (traffic_load[src][dst] / adj_matrix[src][dst] / self.link_capacity)
+					link_count += adj_matrix[src][dst]
+		return mlu, alu / link_count
 
 	def print_topology(self):
 		for coord in self.adjacency_list.keys():
 			print "\n\nCurrent coord: {}, id: {}".format(coord, self.coordinates_to_id[coord])
 			for neighbors in self.adjacency_list[coord]:
 				print "coord: {}, id, {}".format(neighbors, self.coordinates_to_id[neighbors])
+
+	def print_matrix(self, matrix):
+		for row in matrix:
+			string = "| "
+			for elem in row:
+				string += (str(elem) + ", ")
+			string += "|"
+			print string
+
 
 	def num_groups(self):
 		return self.S[-1]
@@ -382,9 +398,37 @@ class ReconfigurableHyperX:
 			num *= i
 		return num
 
+	def get_adjacency_matrix(self):
+		num_switches = len(self.adjacency_list.keys())
+		adj_matrix = [0] * num_switches
+		for src in self.adjacency_list.keys():
+			src_id = self.coordinates_to_id[src]
+			adj_matrix[src_id] = [0] * num_switches
+			for neighbor in self.adjacency_list[src]:
+				neighbor_id = self.coordinates_to_id[neighbor]
+				adj_matrix[src_id][neighbor_id] += 1
+		return adj_matrix
+
+	def get_interpod_adjacency_matrix(self):
+		interpod_matrix = [0] * self.S[-1]
+		for i in range(self.S[-1]):
+			interpod_matrix[i] = [0] * self.S[-1]
+		for src in self.adjacency_list.keys():
+			src_pod = src[-1]
+			for dst in self.adjacency_list[src]:
+				dst_pod = dst[-1]
+				if src_pod != dst_pod:
+					interpod_matrix[src_pod][dst_pod] += 1
+		return interpod_matrix
+
+	def get_num_servers(self, eps_radix):
+		num_servers = 0
+		for switch in self.adjacency_list.keys():
+			network_ports = len(self.adjacency_list[switch])
+			num_servers += (eps_radix - network_ports)
+		return num_servers
 #thx = TaperedHyperX(4, [3,3,3,6], 1, 1, 0.5)
 #adj_mat = thx.adjacency_matrix()
-#thx.print_topology()
 
 
 	

@@ -301,46 +301,6 @@ class TaperedHyperX:
 			#assert(num_neighbors == supposed_num_neighbors)
 		return True
 
-	#def wire_tapered_dimension(self, taper):
-	#	links_per_switch = int(taper * (self.S[-1] - 1))
-	#	links_per_switch = max(links_per_switch, 1) # you need at least two links to ensure full connectivity, in which case the final dimension is just a ring
-	#	group_to_group_links_formed = [0] * self.S[-1] # number of connections formed between a group to another group
-	#	switch_in_group = [0] * self.S[-1] # coordinates of switches in each group
-	#	num_intra_group_switches = 1
-	#	num_intragroup_links = 0
-	#	print self.S
-	#	for dim in range(len(self.S) - 1):
-	#		num_intra_group_switches *= self.S[dim]
-	#		num_intragroup_links += (self.S[dim] - 1)
-	#	if links_per_switch * num_intra_group_switches % 2 == 1:
-	#		links_per_switch += 1
-	#		links_per_switch = min(links_per_switch, self.S[-1] - 1)
-	#	for i in range(self.S[-1]):
-	#		group_to_group_links_formed[i] = [0] * self.S[-1]
-	#		switch_in_group[i] = []
-	#		coord = [0] * (len(self.S) - 1)
-	#		for intra_group_switch in range(num_intra_group_switches):
-	#			switch_in_group[i].append(list(coord))
-	#			coord = self.increment_switch_coord(coord, self.S[:-1])
-	#	print group_to_group_links_formed
-	#	for src_group in range(self.S[-1]):
-	#		while len(switch_in_group[src_group]) > 0:
-	#			src_switch = switch_in_group[src_group].pop() + [src_group,]								
-	#			for link in range((num_intragroup_links + links_per_switch) - len(self.adjacency_list[tuple(src_switch)])):	
-	#				target_group = self.find_minimally_connected_group(group_to_group_links_formed[src_group], src_group)
-	#				# first, try this
-	#				if len(switch_in_group[target_group]) == 0:
-	#					print "intergroup_connectivity \n {}".format(group_to_group_links_formed) 
-	#				target_switch = tuple(switch_in_group[target_group][-1]) + (target_group,)
-	#				group_to_group_links_formed[src_group][target_group] += 1
-	#				group_to_group_links_formed[target_group][src_group] += 1
-	#				self.adjacency_list[tuple(src_switch)].append(target_switch)
-	#				self.adjacency_list[target_switch].append(tuple(src_switch))
-	#				if num_intragroup_links + links_per_switch == len(self.adjacency_list[target_switch]):
-	#					switch_in_group[target_group].pop()				
-	#	return
-
-
 	# checks to see if there is at least one dimension, returns True is so, and False otherwise
 	def share_dimension(self, coord1, coord2):
 		diff_sum = 0
@@ -468,15 +428,18 @@ class TaperedHyperX:
 							curr_node = intermediate_swid
 						path_index += 1
 		# finally, compute the mlu
-		mlu = 0
+		mlu = 0.
+		alu = 0.
+		link_count = 0
 		for src in range(num_switches):
 			for dst in range(num_switches):
-				if src == dst:
+				if src == dst or adj_matrix[src][dst] <= 0:
 					continue
-				if adj_matrix[src][dst] <= 0:
-					continue
-				mlu = max(mlu, traffic_load[src][dst] / adj_matrix[src][dst] / self.link_capacity)
-		return mlu
+				else:
+					mlu = max(mlu, traffic_load[src][dst] / adj_matrix[src][dst] / self.link_capacity)
+					alu += (traffic_load[src][dst] / adj_matrix[src][dst] / self.link_capacity)
+					link_count += adj_matrix[src][dst]
+		return mlu, alu / link_count
 
 	def print_topology(self):
 		for coord in self.adjacency_list.keys():
@@ -494,9 +457,35 @@ class TaperedHyperX:
 			num *= i
 		return num
 
-#thx = TaperedHyperX(4, [3,3,3,6], 1, 1, 0.5)
-#adj_mat = thx.adjacency_matrix()
-#thx.print_topology()
+	def get_adjacency_matrix(self):
+		num_switches = len(self.adjacency_list.keys())
+		adj_matrix = [0] * num_switches
+		for src in self.adjacency_list.keys():
+			src_id = self.coordinates_to_id[src]
+			adj_matrix[src_id] = [0] * num_switches
+			for neighbor in self.adjacency_list[src]:
+				neighbor_id = self.coordinates_to_id[neighbor]
+				adj_matrix[src_id][neighbor_id] += 1
+		return adj_matrix
+
+	def get_interpod_adjacency_matrix(self):
+		interpod_matrix = [0] * self.S[-1]
+		for i in range(self.S[-1]):
+			interpod_matrix[i] = [0] * self.S[-1]
+		for src in self.adjacency_list.keys():
+			src_pod = src[-1]
+			for dst in self.adjacency_list[src]:
+				dst_pod = dst[-1]
+				if src_pod != dst_pod:
+					interpod_matrix[src_pod][dst_pod] += 1
+		return interpod_matrix
+
+	def get_num_servers(self, eps_radix):
+		num_servers = 0
+		for switch in self.adjacency_list.keys():
+			network_ports = len(self.adjacency_list[switch])
+			num_servers += (eps_radix - network_ports)
+		return num_servers
 
 
 	
