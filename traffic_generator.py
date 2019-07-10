@@ -104,5 +104,64 @@ def generate_hpx_intergroup_bipartite(tapered_hyperx):
 				 	tm[src_id][dst_id] += 1000. / num_intragroup_switches
 	return tm, intergroup_tm
 
+def read_traffic_trace_files(filename):
+	tm_dict = {}
+	tm = []
+	with open(filename) as f:
+		for line in f:
+			values = line.split(' ')
+			src = int(values[2])
+			dst = int(values[3])
+			size = int(values[4])
+			if src not in tm_dict:
+				tm_dict[src] = {}
+			if dst not in tm_dict[src]:
+				tm_dict[src][dst] = size
+			else:
+				tm_dict[src][dst] += size
+		num_blocks = len(tm_dict.keys())
+		tm = [0] * num_blocks
+		for src in tm_dict:
+			tm[src] = [0] * num_blocks
+			for dst in tm_dict[src]:
+				tm[src][dst] += tm_dict[src][dst]
+	return tm
 
-	
+## reshapes the TM into a new_size tm
+def reshape_tm(tm, new_size):
+	old_size = len(tm)
+	if old_size == new_size:
+		return tm
+	elif old_size > new_size:
+		size_per_new_blocksize = old_size / new_size
+		leftovers = old_size % new_size
+		offset = 0
+		new_blocks_includes = [0] * new_size # contains what the old block ids belonging to each new block
+		old_blocks_belong = {}
+		# figure out which old blocks belong to which new blocks
+		for i in range(new_size):
+			new_blocks_includes[i] = []
+			for j in range(size_per_new_blocksize):
+				new_blocks_includes[i].append(offset)
+				old_blocks_belong[offset] = i
+				offset += 1
+			if leftovers > 0:
+				leftovers -= 1
+				new_blocks_includes[i].append(offset)
+				old_blocks_belong[offset] = i
+				offset += 1
+		new_tm = [0] * new_size
+		for src_new_block in range(new_size):
+			new_tm[src_new_block] = [0] * new_size
+		for i in range(old_size):
+			new_block_src = old_blocks_belong[i]
+			for j in range(old_size):
+				if i != j:
+					new_block_dst = old_blocks_belong[j]
+					new_tm[new_block_src][new_block_dst] += tm[i][j]
+		return new_tm
+
+
+	else: 
+		print "Unimplemented"
+		return None

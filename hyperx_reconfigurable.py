@@ -4,6 +4,7 @@ import random
 import copy
 import math
 import networkx as nx
+import util 
 ## normally describes just a static network without optical circuit switches, direct network because every switch is supposed to be attached to a terminal
 
 def cart_product(set1, set2):
@@ -110,6 +111,7 @@ class ReconfigurableHyperX:
 		# first we need to figure out what the optimal logical intergroup topology is 
 		model = Model("Logical topology lp")
 		decision_vars = {}
+		intergroup_traffic_matrix = util.normalize_matrix(intergroup_traffic_matrix)
 		for i in range(self.S[-1] - 1):
 			for j in range(i, self.S[-1], 1):
 				decision_vars[(i, j)] = model.addVar(0,intergroup_links, 0., GRB.CONTINUOUS, "{}".format((i,j)))
@@ -372,6 +374,9 @@ class ReconfigurableHyperX:
 					alu += (traffic_load[src][dst] / adj_matrix[src][dst] / self.link_capacity)
 					link_count += adj_matrix[src][dst]
 		return mlu, alu / link_count
+
+
+
 
 	def print_topology(self):
 		for coord in self.adjacency_list.keys():
