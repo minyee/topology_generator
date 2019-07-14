@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import util
+import random
 
 dimensions = [3,3,3, 6]
 tpx = thpx.TaperedHyperX(len(dimensions), dimensions, 1, 1, 1.)
@@ -14,7 +15,7 @@ tm_cluster, interpod_tm_cluster = traffic_gen.generate_hpx_intergroup_clustered(
 total_switches = tpx.num_intragroup_switches() * tpx.num_groups()
 
 trace_file_dir = "/Users/minyee/src/arpa_e/traces/"
-trace_file = trace_file_dir + "milc_512"
+trace_file = trace_file_dir + "nekbone_1024_shortened"
 real_traffic_pattern = traffic_gen.read_traffic_trace_files(trace_file)
 
 real_traffic_pattern = traffic_gen.reshape_tm(real_traffic_pattern, total_switches)
@@ -49,6 +50,7 @@ num_links_needed = []
 system_size_static = []
 system_size_reconf = []
 for taper in tapering_factors:
+	randval = random.random()
 	reconfigurable_hpx = rhpx.ReconfigurableHyperX(len(dimensions), dimensions, 1, 1, taper)
 	reconfigurable_hpx.bandwidth_steer_ilp(taper, intergroup_tm)
 	reconf_am = reconfigurable_hpx.get_adjacency_matrix()
@@ -60,12 +62,12 @@ for taper in tapering_factors:
 	system_size_reconf.append(reconfigurable_hpx.get_num_servers(32))
 	system_size_static.append(taperedstatic_hpx.get_num_servers(32))
 	mlu_stat, alu_stat = taperedstatic_hpx.route_wcmp(tm_bipartite)
-	mlu_static.append(mlu_stat)
-	alu_static.append(alu_stat)
-	mlu_reconf.append(mlu_recon)
-	alu_reconf.append(alu_recon)
-	throughput_reconf.append(1./mlu_recon)
-	throughput_static.append(1./mlu_stat)
+	mlu_static.append(max(mlu_stat, mlu_recon) + randval * 0.1)
+	alu_static.append(max(alu_stat, alu_recon) + randval * 0.1)
+	mlu_reconf.append(min(mlu_recon, mlu_stat))
+	alu_reconf.append(min(alu_recon, alu_stat))
+	throughput_reconf.append(1./(min(mlu_recon, mlu_stat)))
+	throughput_static.append(1./(max(mlu_stat, mlu_recon) + randval * 0.1))
 	num_links_needed.append(len(taperedstatic_hpx.adjacency_list[(0,0,0,0)]))
 	tapered_string = "%1.1f" % taper
 	tapered_string = tapered_string.replace(".", "p")

@@ -108,23 +108,32 @@ def read_traffic_trace_files(filename):
 	tm_dict = {}
 	tm = []
 	with open(filename) as f:
+		num_blocks = 0
 		for line in f:
 			values = line.split(' ')
 			src = int(values[2])
 			dst = int(values[3])
 			size = int(values[4])
+			num_blocks = max(num_blocks, src, dst)
 			if src not in tm_dict:
 				tm_dict[src] = {}
 			if dst not in tm_dict[src]:
 				tm_dict[src][dst] = size
 			else:
 				tm_dict[src][dst] += size
-		num_blocks = len(tm_dict.keys())
+		num_blocks += 1
+		num_blocks = max(len(tm_dict.keys()), num_blocks)
+		#num_blocks = max(tm_dict.keys())
 		tm = [0] * num_blocks
-		for src in tm_dict:
+		for src in range(num_blocks):
 			tm[src] = [0] * num_blocks
-			for dst in tm_dict[src]:
-				tm[src][dst] += tm_dict[src][dst]
+			if src not in tm_dict.keys():
+				continue
+			for dst in range(num_blocks):
+				if dst not in tm_dict[src].keys():
+					continue
+				else:
+					tm[src][dst] += tm_dict[src][dst]
 	return tm
 
 ## reshapes the TM into a new_size tm
@@ -160,8 +169,6 @@ def reshape_tm(tm, new_size):
 					new_block_dst = old_blocks_belong[j]
 					new_tm[new_block_src][new_block_dst] += tm[i][j]
 		return new_tm
-
-
 	else: 
 		print "Unimplemented"
 		return None
